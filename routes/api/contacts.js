@@ -4,7 +4,7 @@ import ContactsService from "../../models/contacts.js";
 const router = express.Router();
 
 /* GET localhost:3000/api/contacts */
-router.get("/", async (req, res, next) => {
+router.get("/", async (req, res) => {
   try {
     const contacts = await ContactsService.listContacts();
     res
@@ -17,7 +17,7 @@ router.get("/", async (req, res, next) => {
 });
 
 /* GET localhost:3000/api/contacts/:id */
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", async (req, res) => {
   try {
     const contact = await ContactsService.getContactById(req.params.id);
 
@@ -34,7 +34,7 @@ router.get("/:id", async (req, res, next) => {
 });
 
 /* POST localhost:3000/api/contacts/ */
-router.post("/", async (req, res, next) => {
+router.post("/", async (req, res) => {
   try {
     const newContact = req.body;
     if (!newContact.name || !newContact.email || !newContact.phone) {
@@ -55,7 +55,7 @@ router.post("/", async (req, res, next) => {
 });
 
 /* PUT localhost:3000/api/contacts/:id */
-router.put("/:id", async (req, res, next) => {
+router.put("/:id", async (req, res) => {
   try {
     const contactId = req.params.id;
     const body = req.body;
@@ -64,7 +64,13 @@ router.put("/:id", async (req, res, next) => {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const updatedContact = await ContactsService.updateContact(contactId, body);
+    const updatedContact = await ContactsService.updateContact(
+      contactId,
+      body,
+      {
+        new: true,
+      }
+    );
 
     if (updatedContact) {
       return res.status(200).json({
@@ -72,7 +78,7 @@ router.put("/:id", async (req, res, next) => {
         data: updatedContact,
       });
     } else {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "Contact not found" });
     }
   } catch (error) {
     console.error("Error updating contact:", error);
@@ -81,19 +87,49 @@ router.put("/:id", async (req, res, next) => {
 });
 
 /* DELETE localhost:3000/api/contacts/:id */
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", async (req, res) => {
   try {
     const contactId = req.params.id;
-    const removeContact = await ContactsService.removeContact(contactId);
-    if (!removeContact) {
+    const removedContact = await ContactsService.removeContact(contactId);
+
+    if (!removedContact) {
       return res.status(404).json({ message: "Contact not found" });
     }
+
     res
       .status(200)
-      .json({ message: "Contact deleted succesfully", data: removeContact });
+      .json({ message: "Contact deleted successfully", data: removedContact });
   } catch (error) {
-    console.error("Error deleting contact", error);
+    console.error("Error deleting contact:", error);
     res.status(500).json({ message: `Error: ${error.message}` });
+  }
+});
+
+router.patch("/:contactId/favorite", async (req, res) => {
+  try {
+    const contactId = req.params.contactId;
+    const { favorite } = req.body;
+
+    if (favorite === undefined) {
+      return res.status(400).json({ message: "Missing field 'favorite'" });
+    }
+
+    const updatedContact = await ContactsService.updateStatusContact(
+      contactId,
+      { favorite }
+    );
+
+    if (!updatedContact) {
+      return res.status(404).json({ message: "Contact not found" });
+    }
+
+    res.status(200).json({
+      message: "Favorite status retrieved successfully",
+      data: { favorite: updatedContact.favorite },
+    });
+  } catch (error) {
+    console.error("Error retrieving contact's favorite status:", error);
+    return res.status(500).json({ message: `Error: ${error.message}` });
   }
 });
 
