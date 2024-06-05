@@ -1,45 +1,62 @@
-import contacts from "./contacts.json" assert { type: "json" };
-import { v4 as uuidv4 } from "uuid";
+import Contact from "./contact-schema.js";
 
 async function listContacts() {
-  return contacts;
+  try {
+    return await Contact.find();
+  } catch (error) {
+    console.error(`Error retrieving contacts: ${error.message}`);
+    throw error;
+  }
 }
 
 async function getContactById(contactId) {
-  return contacts.find((el) => el.id === contactId);
+  try {
+    return await Contact.findById(contactId);
+  } catch (error) {
+    console.error(`Error getting contact by ID: ${error.message}`);
+    throw error;
+  }
 }
 
 async function removeContact(contactId) {
-  const index = contacts.findIndex((contact) => contact.id === contactId);
-
-  if (index !== -1) {
-    const removeContact = contacts.splice(index, 1)[0];
-    return removeContact;
-  } else {
-    throw new Error("Contact not found");
+  try {
+    return await Contact.findByIdAndDelete(contactId);
+  } catch (error) {
+    console.error(`Error deleting contact: ${error.message}`);
+    throw error;
   }
 }
 
 async function addContact(contact) {
-  const newContact = {
-    id: uuidv4(),
-    ...contact,
-  };
-  contacts.push(newContact);
-  return newContact;
+  try {
+    return await Contact.create(contact);
+  } catch (error) {
+    console.error(`Error adding contact: ${error.message}`);
+    throw error;
+  }
 }
 
 async function updateContact(contactId, body) {
-  const index = contacts.findIndex((contact) => contact.id === contactId);
-  if (index !== -1) {
-    contacts[index] = {
-      ...contacts[index],
-      ...body,
-    };
+  try {
+    return await Contact.findByIdAndUpdate(contactId, body, { new: true });
+  } catch (error) {
+    console.error(`Error updating contact: ${error.message}`);
+    throw error;
+  }
+}
 
-    return contacts[index];
-  } else {
-    throw new Error("Contact not found");
+async function updateStatusContact(contactId, body) {
+  try {
+    const updatedContact = await Contact.findByIdAndUpdate(
+      contactId,
+      { favorite: body.favorite },
+      { new: true }
+    );
+
+    return updatedContact;
+  } catch (error) {
+    console.error(`Error updating contact's favorite status: ${error.message}`);
+    throw error;
   }
 }
 
@@ -49,6 +66,7 @@ const ContactsService = {
   removeContact,
   addContact,
   updateContact,
+  updateStatusContact,
 };
 
 export default ContactsService;
