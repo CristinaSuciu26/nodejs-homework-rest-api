@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(
-      "mongodb+srv://csuciu:-egfKnQF2FfA!9P@cluster0.5bk1fud.mongodb.net/db-contacts",
-      {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      }
-    );
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
 
     console.log("MongoDB connection state:", mongoose.connection.readyState);
     console.log("MongoDB connected:", conn.connection.host);
