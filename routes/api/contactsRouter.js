@@ -1,23 +1,42 @@
 import express from "express";
-import ContactsService from "../../models/contacts.js";
+import ContactsService from "../../models/contactsService.js";
 
-const router = express.Router();
+const contactsRouter = express.Router();
 
 /* GET localhost:3000/api/contacts */
-router.get("/", async (req, res) => {
+contactsRouter.get("/", async (req, res) => {
   try {
-    const contacts = await ContactsService.listContacts();
-    res
-      .status(200)
-      .json({ message: "Contacts retrieved successfully", data: contacts });
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+    const favorite = req.query.favorite === "true";
+
+    const filter = {};
+    if (req.query.favorite !== undefined) {
+      filter.favorite = favorite;
+    }
+
+    const contacts = await ContactsService.getContactsPaginated(
+      skip,
+      limit,
+      filter
+    );
+    const totalContacts = await ContactsService.getTotalContacts(filter);
+
+    return res.status(200).json({
+      page,
+      limit,
+      totalContacts,
+      data: contacts,
+    });
   } catch (error) {
-    console.error("Error retrieving contacts:", error);
-    res.status(500).json({ message: `Error: ${error.message}` });
+    console.error("Error fetching contacts:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
 /* GET localhost:3000/api/contacts/:id */
-router.get("/:id", async (req, res) => {
+contactsRouter.get("/:id", async (req, res) => {
   try {
     const contact = await ContactsService.getContactById(req.params.id);
 
@@ -34,7 +53,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /* POST localhost:3000/api/contacts/ */
-router.post("/", async (req, res) => {
+contactsRouter.post("/", async (req, res) => {
   try {
     const newContact = req.body;
     if (!newContact.name || !newContact.email || !newContact.phone) {
@@ -55,7 +74,7 @@ router.post("/", async (req, res) => {
 });
 
 /* PUT localhost:3000/api/contacts/:id */
-router.put("/:id", async (req, res) => {
+contactsRouter.put("/:id", async (req, res) => {
   try {
     const contactId = req.params.id;
     const body = req.body;
@@ -87,7 +106,7 @@ router.put("/:id", async (req, res) => {
 });
 
 /* DELETE localhost:3000/api/contacts/:id */
-router.delete("/:id", async (req, res) => {
+contactsRouter.delete("/:id", async (req, res) => {
   try {
     const contactId = req.params.id;
     const removedContact = await ContactsService.removeContact(contactId);
@@ -105,7 +124,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-router.patch("/:contactId/favorite", async (req, res) => {
+contactsRouter.patch("/:contactId/favorite", async (req, res) => {
   try {
     const contactId = req.params.contactId;
     const { favorite } = req.body;
@@ -133,4 +152,4 @@ router.patch("/:contactId/favorite", async (req, res) => {
   }
 });
 
-export default router;
+export default contactsRouter;

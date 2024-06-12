@@ -1,4 +1,4 @@
-import Contact from "./contact-schema.js";
+import Contact from "./contactSchema.js";
 
 async function listContacts() {
   try {
@@ -60,6 +60,25 @@ async function updateStatusContact(contactId, body) {
   }
 }
 
+const getContactsPaginated = async (skip, limit, filter) => {
+  try {
+    return await Contact.find(filter).skip(skip).limit(limit);
+  } catch (error) {
+    console.error(`Error fetching paginated contacts: ${error.message}`);
+    throw error;
+  }
+};
+
+const getTotalContacts = async (filter) => {
+  try {
+    const total = await Contact.countDocuments(filter);
+    return total;
+  } catch (error) {
+    console.error("Error calculating total contacts:", error);
+    throw error;
+  }
+};
+
 const ContactsService = {
   listContacts,
   getContactById,
@@ -67,6 +86,8 @@ const ContactsService = {
   addContact,
   updateContact,
   updateStatusContact,
+  getContactsPaginated,
+  getTotalContacts,
 };
 
 export default ContactsService;
