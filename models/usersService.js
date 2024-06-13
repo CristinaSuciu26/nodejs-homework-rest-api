@@ -1,11 +1,19 @@
 import User from "./userSchema.js";
+import gravatar from "gravatar";
 
 const findUserByEmail = async (email) => {
   return User.findOne({ email });
 };
 
 const createUser = async (userData) => {
-  const user = new User(userData);
+  const { email, password } = userData;
+  const avatarURL = gravatar.url(email, { s: "200", r: "pg", d: "mm" });
+
+  const user = new User({
+    email,
+    password,
+    avatarURL,
+  });
   return user.save();
 };
 
@@ -19,11 +27,15 @@ const updateUserToken = async (userId, token) => {
   return result;
 };
 
+const updateUserAvatar = async (userId, avatarURL) => {
+  return User.findByIdAndUpdate(userId, { avatarURL }, { new: true });
+};
 const UsersService = {
   findUserByEmail,
   createUser,
   updateUserToken,
   getUserById,
+  updateUserAvatar,
 };
 
 export default UsersService;
