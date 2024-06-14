@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import gravatar from "gravatar";
 const { Schema } = mongoose;
 
 const userSchema = new Schema({
@@ -20,6 +21,16 @@ const userSchema = new Schema({
     type: String,
     default: null,
   },
+  avatarURL: {
+    type: String,
+  },
+});
+
+userSchema.pre("save", function (next) {
+  if (this.isModified("email") || this.isNew) {
+    this.avatarURL = gravatar.url(this.email, { s: "200", r: "pg", d: "mm" });
+  }
+  next();
 });
 const User = mongoose.model("User", userSchema);
 export default User;

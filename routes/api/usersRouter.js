@@ -3,6 +3,9 @@ import UsersService from "../../models/usersService.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../../middleware/authMiddleware.js";
+import Jimp from "jimp";
+import upload from "../../config/multer.js";
+import { promises as fsPromises } from "fs";
 
 const usersRouter = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -29,9 +32,13 @@ usersRouter.post("/signup", async (req, res, next) => {
       password: hashedPassword,
     });
 
-    return res
-      .status(201)
-      .json({ user: { email: newUser.email, subscription: "starter" } });
+    return res.status(201).json({
+      user: {
+        email: newUser.email,
+        subscription: newUser.subscription,
+        avatarURL: newUser.avatarURL,
+      },
+    });
   } catch (error) {
     console.error("Error processing user signup request:", error);
     res.status(500).json({ message: `Error: ${error.message}` });
@@ -114,4 +121,36 @@ usersRouter.get("/current", authMiddleware, async (req, res) => {
   }
 });
 
+// Avatars
+usersRouter.patch(
+  "/avatars",
+  authMiddleware,
+  upload.single("avatar"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const filePath = req.file.path;
+      const image = await Jimp.read(filePath);
+      await image.resize(250, 250).writeAsync(filePath);
+
+      const avatarFileName = `${req.user._id}-${req.file.filename}`;
+      const targetPath = `public/avatars/${avatarFileName}`;
+      await fsPromises.rename(filePath, targetPath);
+
+      const avatarURL = `/avatars/${avatarFileName}`;
+      const updatedUser = await UsersService.updateUserAvatar(
+        req.user._id,
+        avatarURL
+      );
+
+      return res.status(200).json({ avatarURL });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      return res.status(500).json({ message: `Error: ${error.message}` });
+    }
+  }
+);
 export default usersRouter;
