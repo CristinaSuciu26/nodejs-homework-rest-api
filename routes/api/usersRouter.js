@@ -6,6 +6,8 @@ import authMiddleware from "../../middleware/authMiddleware.js";
 import Jimp from "jimp";
 import upload from "../../config/multer.js";
 import { promises as fsPromises } from "fs";
+import sendEmail from "../../config/sendgrid.js";
+import { v4 as uuidv4 } from "uuid";
 
 const usersRouter = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -26,11 +28,21 @@ usersRouter.post("/signup", async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = uuidv4();
+    console.log("Generated verificationToken:", verificationToken);
 
     const newUser = await UsersService.createUser({
       email,
       password: hashedPassword,
+      verificationToken,
     });
+    const verificationUrl = `${req.protocol}://${req.get(
+      "host"
+    )}/api/users/verify/${verificationToken}`;
+    const subject = "Verify your email";
+    const text = `Please verify your email by clicking the following link: ${verificationUrl}`;
+    const html = `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`;
+    await sendEmail(email, subject, text, html);
 
     return res.status(201).json({
       user: {
@@ -45,6 +57,68 @@ usersRouter.post("/signup", async (req, res, next) => {
   }
 });
 
+// verify/:verificationToken
+usersRouter.get("/verify/:verificationToken", async (req, res) => {
+  const { verificationToken } = req.params;
+
+  try {
+    const user = await UsersService.findUserByVerificationToken(
+      verificationToken
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const updatedUser = await UsersService.verifyUser(user._id);
+
+    return res.status(200).json({ message: "Verification successful" });
+  } catch (error) {
+    console.error("Error verifying user:", error);
+    return res.status(500).json({ message: `Error: ${error.message}` });
+  }
+});
+
+// users/verify/
+usersRouter.post("/verify", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Missing required field email" });
+    }
+
+    const user = await UsersService.findUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.verify) {
+      return res
+        .status(400)
+        .json({ message: "Verification has already been passed" });
+    }
+
+    const verificationToken = uuidv4();
+
+    user.verificationToken = verificationToken;
+    await user.save();
+
+    const verificationUrl = `${req.protocol}://${req.get(
+      "host"
+    )}/api/users/verify/${verificationToken}`;
+    const subject = "Verify your email";
+    const text = `Please verify your email by clicking the following link: ${verificationUrl}`;
+    const html = `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`;
+    await sendEmail(email, subject, text, html);
+
+    return res.status(200).json({ message: "Verification email sent" });
+  } catch (error) {
+    console.error("Error resending verification email:", error);
+    return res.status(500).json({ message: `Error: ${error.message}` });
+  }
+});
+
 // Login
 usersRouter.post("/login", async (req, res, next) => {
   try {
@@ -53,6 +127,9 @@ usersRouter.post("/login", async (req, res, next) => {
     const existingUser = await UsersService.findUserByEmail(email);
     if (!existingUser) {
       return res.status(401).json({ message: "Invalid email or password" });
+    }
+    if (!existingUser.verify) {
+      return res.status(401).json({ message: "Email not verified yet" });
     }
 
     const isPasswordValid = await bcrypt.compare(
